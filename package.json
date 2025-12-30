@@ -1,0 +1,43 @@
+{
+  "name": "@mattwca/little-parser-lib",
+  "version": "1.0.0",
+  "description": "",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "npm run clean && tsdown"
+  },
+  "keywords": [
+    "parser",
+    "combinators",
+    "parser-combinators",
+    "parsing"
+  ],
+  "author": "@mattwca",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^25.0.3",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.6",
+    "tsdown": "^0.18.3",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=14"
+  }
+}
