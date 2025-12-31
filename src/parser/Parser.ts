@@ -1,4 +1,4 @@
-import { TokenStream } from "../tokenizer";
+import { Tokenizer, TokenStream } from "../tokenizer";
 import { Token, TokenType } from "../tokenizer/types";
 import { ParsingError } from "./ParsingError";
 import { FailedParserResult, isFailedResult, isSuccessfulResult, ParseFn, ParserResult, SuccessfulParserResult } from "./types";
@@ -195,24 +195,19 @@ export function parseName(): ParseFn<any> {
 }
 
 export class Parser {
-  constructor(private tokenStream: TokenStream) { }
+  public static runParserOnString<T>(parser: ParseFn<T>, input: string, tokenizer: Tokenizer): ParserResult<T> {
+    const tokens = tokenizer.tokenize(input);
+    const stream = new TokenStream(tokens);
 
-  public runParser<T>(parser: ParseFn<T>, tokenStream: TokenStream): ParserResult<T> {
-    try {
-      const test = parser(tokenStream);
-      if (isFailedResult(test)) {
-        throw new ParsingError(test.errorMessage, test.position);
-      }
+    return this.runParser<T>(parser, stream);
+  }
 
-      return test;
-    } catch (err: ParsingError | any) {
-      // if (err instanceof ParsingError) {
-      //   if (this.deepestError && this.deepestError.location.position > err.location.position) {
-      //     throw this.deepestError;
-      //   }
-      // }
-
-      throw err;
+  public static runParser<T>(parser: ParseFn<T>, tokenStream: TokenStream): ParserResult<T> {
+    const test = parser(tokenStream);
+    if (isFailedResult(test)) {
+      throw new ParsingError(test.errorMessage, test.position);
     }
+
+    return test;
   }
 }

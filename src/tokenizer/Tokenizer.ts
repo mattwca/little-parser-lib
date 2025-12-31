@@ -7,35 +7,44 @@ export const NewLineRegex = /\n/;
 
 export class Tokenizer {
   constructor(
-    private tokenTypeMatchers: Map<string | RegExp, TokenType> = new Map(),
+    private tokenTypeMatchers: { matcher: string | RegExp, type: TokenType }[] = [],
     private newLineTokenType: TokenType | null = null
-  ) { }
+  ) {}
 
-  public withTokenType(matcher: string | RegExp, type: TokenType): Tokenizer {
-    this.tokenTypeMatchers.set(matcher, type);
+  public withTokenType(type: TokenType, matcher: string | RegExp): Tokenizer {
+    this.tokenTypeMatchers.push({ matcher, type });
     return this;
   }
 
   public tokenize(input: string): Token[] {
     const position = {
       line: 1,
-      column: 1,
+      column: 0,
     }
 
     return input.split('').reduce<Token[]>((tokens, char) => {
       position.column += 1;
 
-      for (const [matcher, type] of this.tokenTypeMatchers) {
+      let matched = false;
+      for (const { matcher, type } of this.tokenTypeMatchers.values()) {
         if (typeof matcher === 'string' && char === matcher) {
           tokens.push({ type, value: char, position: { ...position }});
+          matched = true;
           break;
         }
 
         if (matcher instanceof RegExp && matcher.test(char)) {
           tokens.push({ type, value: char, position: { ...position }});
+          matched = true;
           break;
         }
 
+        if (matched && type === this.newLineTokenType) {
+          position.line += 1;
+        }
+      }
+
+      if (!matched) {
         throw new Error(`No token type matched for character: ${char}`);
       }
 
