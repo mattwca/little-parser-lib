@@ -3,13 +3,16 @@ import { Token, TokenType } from "../tokenizer/types";
 import { ParsingError } from "./ParsingError";
 import { FailedParserResult, isFailedResult, isSuccessfulResult, ParseFn, ParserResult, SuccessfulParserResult } from "./types";
 
+/**
+ * Combines multiple parsers in sequence, returning an array of their results.
+ * If one of the parsers fails, the entire sequence fails.
+ */
 export function and(...parsers: ParseFn<any>[]): ParseFn<any[]> {
   return (tokenStream: TokenStream) => {
     const results: any[] = [];
 
     for (const parser of parsers) {
       const parseResult = parser(tokenStream);
-      console.log('and parseResult:', parseResult);
 
       if (isFailedResult(parseResult)) {
         return parseResult;
@@ -57,6 +60,10 @@ export function optional<T>(parser: ParseFn<T>, shouldBacktrack: boolean = true)
   };
 }
 
+/**
+ * Tries multiple parsers in order, returning the result of the first successful parse.
+ * If all parsers fail, returns the error from the parser that got the furthest.
+ */
 export function or<T>(...parsers: ParseFn<T>[]): ParseFn<T> {
   return (tokenStream: TokenStream) => {
     let deepestError = null;
@@ -84,6 +91,10 @@ export function or<T>(...parsers: ParseFn<T>[]): ParseFn<T> {
   };
 }
 
+/**
+ * Applies a parser repeatedly until it fails, collecting all successful results into an array.
+ * If the parser fails on the first attempt, returns a failure.
+ */
 export function many(parser: ParseFn<any>): ParseFn<any> {
   return (tokenStream: TokenStream) => {
     const results: any[] = [];
@@ -112,6 +123,9 @@ export function many(parser: ParseFn<any>): ParseFn<any> {
   };
 }
 
+/**
+ * Labels a parser with a custom error message for better context if it fails.
+ */
 export function label<T>(label: string, parser: ParseFn<T>): ParseFn<T> {
   return (tokenStream: TokenStream) => {
     const result = parser(tokenStream);
@@ -133,6 +147,9 @@ export function label<T>(label: string, parser: ParseFn<T>): ParseFn<T> {
   }
 }
 
+/**
+ * In-built utility parser that parses any token except those of the specified type(s).
+ */
 export function anyExcept(...types: TokenType[]): ParseFn<Token> {
   return (tokenStream: TokenStream) => {
     const token = tokenStream.consume();
@@ -148,6 +165,9 @@ export function anyExcept(...types: TokenType[]): ParseFn<Token> {
   };
 }
 
+/**
+ * In-built utility parser that parses any token of the specified type(s).
+ */
 export function anyOf(...types: TokenType[]): ParseFn<Token> {
   return (tokenStream: TokenStream) => {
     const token = tokenStream.consume();
@@ -163,6 +183,9 @@ export function anyOf(...types: TokenType[]): ParseFn<Token> {
   }
 }
 
+/**
+ * In-built utility parser that ensures the end of input has been reached.
+ */
 export function endOfInput(): ParseFn {
   return (tokenStream: TokenStream) => {
     const token = tokenStream.consume();
@@ -194,20 +217,39 @@ export function parseName(): ParseFn<any> {
   }
 }
 
-export class Parser {
-  public static runParserOnString<T>(parser: ParseFn<T>, input: string, tokenizer: Tokenizer): ParserResult<T> {
-    const tokens = tokenizer.tokenize(input);
-    const stream = new TokenStream(tokens);
+/**
+ * Transforms the result of a parser using a given mapping function.
+ */
+export function map<T, U>(parser: ParseFn<T>, mapFn: (value: T) => U): ParseFn<U> {
+  return (tokenStream: TokenStream) => {
+    const result = parser(tokenStream);
 
-    return this.runParser<T>(parser, stream);
-  }
-
-  public static runParser<T>(parser: ParseFn<T>, tokenStream: TokenStream): ParserResult<T> {
-    const test = parser(tokenStream);
-    if (isFailedResult(test)) {
-      throw new ParsingError(test.errorMessage, test.position);
+    if (isSuccessfulResult(result)) {
+      return { result: mapFn(result.result) };
     }
 
-    return test;
+    return result;
+  };
+}
+
+/**
+ * Runs a parser on a given TokenStream, throwing an error if parsing fails.
+ */
+export function runParser<T>(parser: ParseFn<T>, tokenStream: TokenStream): ParserResult<T> {
+  const test = parser(tokenStream);
+  if (isFailedResult(test)) {
+    throw new ParsingError(test.errorMessage, test.position);
   }
+
+  return test;
+}
+
+/**
+ * Runs a parser on a given input string, using the provided tokenizer to generate tokens.
+ */
+export function runParserOnString<T>(parser: ParseFn<T>, input: string, tokenizer: Tokenizer): ParserResult<T> {
+  const tokens = tokenizer.tokenize(input);
+  const stream = new TokenStream(tokens);
+
+  return runParser<T>(parser, stream);
 }
