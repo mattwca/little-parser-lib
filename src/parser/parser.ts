@@ -130,15 +130,11 @@ export function label<T>(label: string, parser: ParseFn<T>): ParseFn<T> {
   return (tokenStream: TokenStream) => {
     const result = parser(tokenStream);
 
-    console.log('label parse result:', result);
-
     if (isSuccessfulResult(result)) {
       return result;
     }
 
     const errorMessage = `${label}: ${result.errorMessage}`;
-
-    console.log('labeled error message:', errorMessage);
 
     return {
       errorMessage,
