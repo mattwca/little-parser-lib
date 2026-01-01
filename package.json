@@ -19,7 +19,8 @@
   ],
   "scripts": {
     "clean": "rm -rf dist",
-    "build": "npm run clean && tsdown"
+    "build": "npm run clean && tsdown",
+    "build:dev": "npm run clean && tsdown --dev"
   },
   "keywords": [
     "parser",
