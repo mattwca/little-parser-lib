@@ -9,6 +9,7 @@ A lightweight, flexible TypeScript library for building parsers using parser com
 - 📝 **TypeScript First**: Full type safety and IntelliSense support
 - 🎯 **Backtracking Support**: Automatic position restoration on parse failures
 - 📦 **Zero Dependencies**: Lightweight with no external runtime dependencies
+- ✨ Packaged with [tsdown](https://tsdown.dev)
 
 ## Installation
 
