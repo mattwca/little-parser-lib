@@ -197,24 +197,11 @@ export function endOfInput(): ParseFn {
   };
 }
 
-export function parseName(): ParseFn<any> {
-  return (tokenStream: TokenStream) => {
-    const validTokenTypes: TokenType[] = ['letter', 'digit', 'minus', 'underscore'];
-    const parseValidToken = anyOf(...validTokenTypes);
-
-    const parser = and(anyOf('letter'), many(parseValidToken));
-    const result = parser(tokenStream);
-
-    if (isSuccessfulResult(result)) {
-      console.log(result);
-    }
-
-    return result;
-  }
-}
-
 /**
  * Transforms the result of a parser using a given mapping function.
+ * @param parser The parser whose result is to be transformed.
+ * @param mapFn A function that takes the parser's result and returns a new value.
+ * @returns A new parser that applies the mapping function to the result of the original parser.
  */
 export function map<T, U>(parser: ParseFn<T>, mapFn: (value: T) => U): ParseFn<U> {
   return (tokenStream: TokenStream) => {

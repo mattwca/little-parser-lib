@@ -9,7 +9,7 @@ A lightweight, flexible TypeScript library for building parsers using parser com
 - 📝 **TypeScript First**: Full type safety and IntelliSense support
 - 🎯 **Backtracking Support**: Automatic position restoration on parse failures
 - 📦 **Zero Dependencies**: Lightweight with no external runtime dependencies
-- ✨ Packaged with [tsdown](https://tsdown.dev)
+- ✨ **Widely Compatible**: Packaged with [tsdown](https://tsdown.dev)
 
 ## Installation
 
@@ -199,6 +199,46 @@ Convenience method to tokenize and parse in one step.
 const result = runParserOnString(myParser, 'input string', tokenizer);
 ```
 
+## Utilities
+
+The library provides utility functions to help with common parser result manipulation tasks.
+
+### `unwrapResult(items)`
+
+Flattens nested arrays that result from combining parsers like `and` and `many`. This is particularly useful when you have deeply nested parser structures and need a flat array of results.
+
+```typescript
+import { unwrapResult } from '@mattwca/little-parser-lib';
+
+// Parser results can be nested
+const parser = and(
+  many(anyOf('letter')),
+  many(anyOf('digit'))
+);
+
+const result = runParser(parser, stream);
+// result.result might be: [[token1, token2], [token3, token4]]
+
+const flattened = unwrapResult(result.result);
+// flattened is: [token1, token2, token3, token4]
+```
+
+**Parameters:**
+- `items: (T | T[])[]` - An array that may contain nested arrays
+
+**Returns:**
+- `T[]` - A flattened array with all nested items extracted
+
+**Example Use Cases:**
+
+```typescript
+// Use with map to process flattened results
+const tokenParser = map(
+  and(many(anyOf('letter')), many(anyOf('digit'))),
+  (results) => unwrapResult(results).map(t => t.value).join('')
+);
+```
+
 ## Example: Simple Expression Parser
 
 ```typescript
@@ -301,6 +341,7 @@ try {
 - `runParserOnString(parser, input, tokenizer)`: Execute parser on string
 - `isSuccessfulResult(result)`: Type guard for successful results
 - `isFailedResult(result)`: Type guard for failed results
+- `unwrapResult(results)`: Unwrap nested parser results
 
 ## License
 

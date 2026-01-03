@@ -1,3 +1,3 @@
-export * from './parser';
+export * from './parsers';
 export * from './ParsingError';
 export * from './types';
