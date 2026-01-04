@@ -92,8 +92,8 @@ export function or<T>(...parsers: ParseFn<T>[]): ParseFn<T> {
 }
 
 /**
- * Applies a parser repeatedly until it fails, collecting all successful results into an array.
- * If the parser fails on the first attempt, returns a failure.
+ * Applies a parser repeatedly until it fails or doesn't make progress (move the position), collecting
+ * all successful results into an array. If the parser fails on the first attempt, returns a failure.
  */
 export function many(parser: ParseFn<any>): ParseFn<any> {
   return (tokenStream: TokenStream) => {
@@ -102,10 +102,20 @@ export function many(parser: ParseFn<any>): ParseFn<any> {
     let parseFailure = null;
 
     while (true) {
+      const positionBefore = tokenStream.position;
       tokenStream.storePosition();
 
       const result = parser(tokenStream);
+
       if (isSuccessfulResult(result)) {
+        const positionAfter = tokenStream.position;
+
+        // Check if the parser made any progress - if it didn't, we break out to avoid infinite loops.
+        if (positionAfter === positionBefore) {
+          tokenStream.restorePosition();
+          break;
+        }
+
         results.push(result.result);
         tokenStream.clearPosition();
       } else {
