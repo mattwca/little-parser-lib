@@ -6,8 +6,11 @@ import { FailedParserResult, isFailedResult, isSuccessfulResult, ParseFn, Parser
 /**
  * Combines multiple parsers in sequence, returning an array of their results.
  * If one of the parsers fails, the entire sequence fails.
+ * @param parsers The parsers to run in sequence.
  */
-export function and(...parsers: ParseFn<any>[]): ParseFn<any[]> {
+export function and<Parsers extends ParseFn<any>[]>(
+  ...parsers: Parsers
+): ParseFn<{ [K in keyof Parsers]: Parsers[K] extends ParseFn<infer R> ? R : never }> {
   return (tokenStream: TokenStream) => {
     const results: any[] = [];
 
@@ -21,7 +24,7 @@ export function and(...parsers: ParseFn<any>[]): ParseFn<any[]> {
       results.push(parseResult.result);
     }
 
-    return { result: results };
+    return { result: results } as any;
   };
 }
 
@@ -95,9 +98,9 @@ export function or<T>(...parsers: ParseFn<T>[]): ParseFn<T> {
  * Applies a parser repeatedly until it fails or doesn't make progress (move the position), collecting
  * all successful results into an array. If the parser fails on the first attempt, returns a failure.
  */
-export function many(parser: ParseFn<any>): ParseFn<any> {
+export function many<T>(parser: ParseFn<T>): ParseFn<T[]> {
   return (tokenStream: TokenStream) => {
-    const results: any[] = [];
+    const results: T[] = [];
 
     let parseFailure = null;
 
