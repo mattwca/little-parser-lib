@@ -1,10 +1,5 @@
 import { TokenStream } from "../tokenizer";
-
-export type ParsingErrorPosition = {
-  line: number;
-  column: number;
-  position: number;
-}
+import { ParserErrorPosition } from "./ParserError";
 
 export type SuccessfulParserResult<T> = {
   result: T;
@@ -12,7 +7,7 @@ export type SuccessfulParserResult<T> = {
 
 export type FailedParserResult = {
   errorMessage: string;
-  position: ParsingErrorPosition;
+  position: ParserErrorPosition;
 }
 
 export type ParserResult<T> = SuccessfulParserResult<T> | FailedParserResult;
