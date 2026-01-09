@@ -1,6 +1,6 @@
 import { Tokenizer, TokenStream } from "../tokenizer";
 import { ParserError } from "./ParserError";
-import { isFailedResult, ParserResult } from "./types";
+import { isFailedResult, ParseFn, ParserResult } from "./types";
 
 /**
  * Runs a parser on a given TokenStream, throwing an error if parsing fails.
