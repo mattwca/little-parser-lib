@@ -8,8 +8,9 @@ A lightweight, flexible TypeScript library for building parsers using parser com
 - 🔍 **Built-in Tokenizer**: Flexible tokenization with regex and string matching
 - 📝 **TypeScript First**: Full type safety and IntelliSense support
 - 🎯 **Backtracking Support**: Automatic position restoration on parse failures
+- 🔒 **Infinite Loop Protection**: `many` combinator detects non-progressing parsers
 - 📦 **Zero Dependencies**: Lightweight with no external runtime dependencies
-- ✨ **Widely Compatible**: Packaged with [tsdown](https://tsdown.dev)
+- ✨ **Widely Compatible**: Packaged with [tsdown](https://tsdown.dev) for ESM and CJS support
 
 ## Installation
 
@@ -70,11 +71,29 @@ A parser function (`ParseFn<T>`) takes a `TokenStream` and returns a `ParserResu
 - `SuccessfulParserResult<T>`: Contains the parsed result
 - `FailedParserResult`: Contains error message and position
 
+### TokenStream
+
+The `TokenStream` class manages the token consumption and position tracking during parsing:
+
+**Core Methods:**
+- `peek()`: Look at the next token without consuming it
+- `consume()`: Consume and return the next token
+- `consumeIf(...types)`: Conditionally consume a token if it matches the specified types
+
+**Position Management:**
+- `storePosition()`: Save current position to the stack (for backtracking)
+- `clearPosition()`: Remove the most recent saved position
+- `restorePosition()`: Restore to the most recent saved position
+
+**Utility Methods:**
+- `peekRemainder()`: Get all remaining tokens as a string
+- `getPositionForError()`: Get current position info for error reporting
+
 ## Parser Combinators
 
 ### `and(...parsers)`
 
-Combines multiple parsers in sequence. All parsers must succeed.
+Combines multiple parsers in sequence. All parsers must succeed. Returns a tuple array preserving the types of each parser's result.
 
 ```typescript
 const parser = and(
@@ -82,6 +101,7 @@ const parser = and(
   anyOf('identifier'),
   anyOf('semicolon')
 );
+// Result type is [Token, Token, Token]
 ```
 
 ### `or(...parsers)`
@@ -98,7 +118,7 @@ const parser = or(
 
 ### `many(parser)`
 
-Applies a parser repeatedly until it fails (requires at least one success).
+Applies a parser repeatedly until it fails or stops making progress. Requires at least one successful match. Includes infinite loop protection by detecting when the parser doesn't advance the token position.
 
 ```typescript
 const parser = many(anyOf('digit')); // Parses one or more digits
@@ -178,15 +198,15 @@ const parser = and(
 
 ### `runParser(parser, tokenStream)`
 
-Runs a parser on a token stream. Throws `ParsingError` on failure.
+Runs a parser on a token stream. Throws `ParserError` on failure.
 
 ```typescript
 try {
   const result = runParser(myParser, tokenStream);
   console.log(result.result);
 } catch (error) {
-  if (error instanceof ParsingError) {
-    console.error(`Parse error at ${error.position.line}:${error.position.column}`);
+  if (error instanceof ParserError) {
+    console.error(`Parse error at ${error.location.line}:${error.location.column}`);
   }
 }
 ```
@@ -197,46 +217,6 @@ Convenience method to tokenize and parse in one step.
 
 ```typescript
 const result = runParserOnString(myParser, 'input string', tokenizer);
-```
-
-## Utilities
-
-The library provides utility functions to help with common parser result manipulation tasks.
-
-### `unwrapResult(items)`
-
-Flattens nested arrays that result from combining parsers like `and` and `many`. This is particularly useful when you have deeply nested parser structures and need a flat array of results.
-
-```typescript
-import { unwrapResult } from '@mattwca/little-parser-lib';
-
-// Parser results can be nested
-const parser = and(
-  many(anyOf('letter')),
-  many(anyOf('digit'))
-);
-
-const result = runParser(parser, stream);
-// result.result might be: [[token1, token2], [token3, token4]]
-
-const flattened = unwrapResult(result.result);
-// flattened is: [token1, token2, token3, token4]
-```
-
-**Parameters:**
-- `items: (T | T[])[]` - An array that may contain nested arrays
-
-**Returns:**
-- `T[]` - A flattened array with all nested items extracted
-
-**Example Use Cases:**
-
-```typescript
-// Use with map to process flattened results
-const tokenParser = map(
-  and(many(anyOf('letter')), many(anyOf('digit'))),
-  (results) => unwrapResult(results).map(t => t.value).join('')
-);
 ```
 
 ## Example: Simple Expression Parser
@@ -250,6 +230,7 @@ import {
   or, 
   many, 
   map, 
+  optional,
   runParserOnString 
 } from '@mattwca/little-parser-lib';
 
@@ -258,31 +239,41 @@ const tokenizer = new Tokenizer()
   .withTokenType('digit', /[0-9]/)
   .withTokenType('plus', '+')
   .withTokenType('minus', '-')
+  .withTokenType('multiply', '*')
+  .withTokenType('divide', '/')
   .withTokenType('whitespace', /\s/);
 
 // Define parsers
 const digit = anyOf('digit');
+const ws = optional(anyOf('whitespace'));
+
+// Parse a number (one or more digits)
 const number = map(
   many(digit),
   (tokens) => parseInt(tokens.map(t => t.value).join(''))
 );
 
+// Parse an operator
 const operator = or(
   anyOf('plus'),
-  anyOf('minus')
+  anyOf('minus'),
+  anyOf('multiply'),
+  anyOf('divide')
 );
 
+// Parse a complete expression: number operator number
 const expression = and(
   number,
-  optional(anyOf('whitespace')),
+  ws,
   operator,
-  optional(anyOf('whitespace')),
+  ws,
   number
 );
 
-// Parse
-const result = runParserOnString(expression, '10 + 5', tokenizer);
-console.log(result.result); // [10, null, {...}, null, 5]
+// Parse and extract values
+const result = runParserOnString(expression, '42 + 8', tokenizer);
+const [leftNum, , op, , rightNum] = result.result;
+console.log(`${leftNum} ${op.value} ${rightNum}`); // "42 + 8"
 ```
 
 ## Error Handling
@@ -293,12 +284,12 @@ The library provides detailed error messages with position information:
 try {
   const result = runParser(myParser, stream);
 } catch (error) {
-  if (error instanceof ParsingError) {
+  if (error instanceof ParserError) {
     console.error(`
       Error: ${error.message}
-      Line: ${error.position.line}
-      Column: ${error.position.column}
-      Position: ${error.position.position}
+      Line: ${error.location.line}
+      Column: ${error.location.column}
+      Position: ${error.location.position}
     `);
   }
 }
@@ -310,14 +301,21 @@ try {
 
 - `Tokenizer`: Converts input strings into tokens
 - `TokenStream`: Manages token consumption and backtracking
-- `ParsingError`: Error thrown when parsing fails
+  - `peek()`: Look at the next token without consuming it
+  - `consume()`: Get and advance to the next token
+  - `consumeIf(...types)`: Conditionally consume token if it matches given types
+  - `peekRemainder()`: Get remaining unparsed tokens as a string
+  - `storePosition()`, `clearPosition()`, `restorePosition()`: Manual backtracking control
+- `ParserError`: Error thrown when parsing fails
 
 ### Types
 
 - `Token`: Represents a single token with type, value, and position
-- `TokenType`: String identifier for token types
+- `TokenType`: String identifier for token types (or 'end_of_input')
+- `TokenPosition`: Position info with line and column numbers
 - `ParseFn<T>`: Function that takes a TokenStream and returns ParserResult<T>
 - `ParserResult<T>`: Union of SuccessfulParserResult<T> and FailedParserResult
+- `ParserErrorPosition`: Extended position info including token stream position
 
 ### Combinators
 
@@ -341,7 +339,6 @@ try {
 - `runParserOnString(parser, input, tokenizer)`: Execute parser on string
 - `isSuccessfulResult(result)`: Type guard for successful results
 - `isFailedResult(result)`: Type guard for failed results
-- `unwrapResult(results)`: Unwrap nested parser results
 
 ## License
 
