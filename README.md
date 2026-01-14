@@ -224,7 +224,7 @@ const result = runParserOnString(myParser, 'input string', tokenizer);
 ```typescript
 import { 
   Tokenizer, 
-  TokenStream, 
+  isSuccessfulResult,
   anyOf, 
   and, 
   or, 
@@ -272,8 +272,10 @@ const expression = and(
 
 // Parse and extract values
 const result = runParserOnString(expression, '42 + 8', tokenizer);
-const [leftNum, , op, , rightNum] = result.result;
-console.log(`${leftNum} ${op.value} ${rightNum}`); // "42 + 8"
+if (isSuccessfulResult(result)) {
+  const [leftNum, , op, , rightNum] = result.result;
+  console.log(`${leftNum} ${op.value} ${rightNum}`); // "42 + 8"
+}
 ```
 
 ## Error Handling
@@ -292,6 +294,69 @@ try {
       Position: ${error.location.position}
     `);
   }
+}
+```
+
+## Self-referencing ("recursive") parsing
+
+Parsers should be able to parse complex expressions, which can occasionally require a parser to be able to call itself, or call another parser which in turn calls it.
+
+Taking the expression parser example above, we can modify it to support parsing of nested algebraic expressions:
+
+```typescript
+type Expression = {
+  left: Expression | number;
+  operator: string;
+  right: Expression | number;
+};
+
+type AlgebraicExpression = {
+  symbol: string;
+  expression: Expression;
+};
+
+const tokenizer = new Tokenizer()
+  ...
+  .withTokenType('left_parenthesis', '(')
+  .withTokenType('right_parenthesis', ')')
+  .withTokenType('letter', /[a-zA-Z]/);
+
+let expression: ParseFn<number | AlgebraicExpression | Expression> | null = null;
+
+const letter = anyOf('letter');
+const leftParen = anyOf('left_parenthesis');
+const rightParen = anyOf('right_parenthesis');
+
+const algebraicExpression: ParseFn<AlgebraicExpression> = (ts) => {
+  return map(
+    and(letter, leftParen, expression!, rightParen),
+    ([{ value: symbol },, expression]) => {
+      return {
+        symbol,
+        expression
+      }
+    }
+  )(ts);
+};
+
+expression = map(
+  and(
+    or<number | AlgebraicExpression>(number, algebraicExpression!),
+    ws,
+    operator,
+    ws,
+    or<number | AlgebraicExpression>(number, algebraicExpression!),
+  ),
+  ([leftExpr,, { value: operator },, rightExpr]) => ({
+    left: leftExpr,
+    operator,
+    right: rightExpr,
+  })
+);
+
+const result = runParserOnString(expression, 'a(3 + b(7 + 8)) + c(1 + 2)', tokenizer);
+if (isSuccessfulResult(result)) {
+  console.log(JSON.stringify(result.result, null, 2));
 }
 ```
 
